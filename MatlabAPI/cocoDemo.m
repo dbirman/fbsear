@@ -2,8 +2,8 @@
 
 %% initialize COCO api (please specify dataType/annType below)
 annTypes = { 'instances', 'captions', 'person_keypoints' };
-dataType='val2014'; annType=annTypes{1}; % specify dataType/annType
-annFile=sprintf('../annotations/%s_%s.json',annType,dataType);
+dataType='train2017'; annType=annTypes{1}; % specify dataType/annType
+annFile=fullfile('~/proj/fbsear/',sprintf('annotations/%s_%s.json',annType,dataType));
 coco=CocoApi(annFile);
 
 %% display COCO categories and supercategories
@@ -15,14 +15,22 @@ if( ~strcmp(annType,'captions') )
   fprintf('%s, ',nms{:}); fprintf('\n');
 end
 
+%% Split cats
+high_cat = unique({cats.supercategory});
+low_cat = {cats.name};
+
 %% get all images containing given categories, select one at random
-catIds = coco.getCatIds('catNms',{'person','dog','skateboard'});
-imgIds = coco.getImgIds('catIds',catIds);
+imgIds = [];
+while isempty(imgIds)
+    catIds = coco.getCatIds('catNms',low_cat(randi(length(low_cat),1,3)));
+    imgIds = coco.getImgIds('catIds',catIds);
+end
+
 imgId = imgIds(randi(length(imgIds)));
 
 %% load and display image
 img = coco.loadImgs(imgId);
-I = imread(sprintf('../images/%s/%s',dataType,img.file_name));
+I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
 figure(1); imagesc(I); axis('image'); set(gca,'XTick',[],'YTick',[])
 
 %% load and display annotations
