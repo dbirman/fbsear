@@ -35,7 +35,7 @@ for i = 1:length(coco.data.images)
         anndata(ai,:) = [anns(ai).id anns(ai).area/area];
     end
     imanns{i} = anndata;
-    keep(i) = ~any(anndata(:,2)>0.2); % keep indexes that have no annotations greater than 20% of image
+    keep(i) = ~any(anndata(:,2)>0.33); % keep indexes that have no annotations greater than 20% of image
 end
 
 oidx = find(keep); % save the original indexes so we can quickly pull the full info from the coco dataset
@@ -44,20 +44,49 @@ imanns = imanns(logical(keep));
 
 %% Find images in the eight combination categories
 
-base = {{}
-        {'car'}
-        {'car','dog'}
+base = {{'car','dog','person'}
         {'car','person'}
-        {'car','dog','person'}
         {'dog','person'}
+        {'car','dog'}
+        {'person'}
+        {'car'}
         {'dog'}
-        {'person'}};
+        {}};
 allCats = {''};
 
+imdata_ = [imdata zeros(size(imdata,1),8)];
 % for each category combination load all the relevant images then add to
 % the imdata array to tell which of the eight groups that image falls under
 for bi = 1:length(base)
     catIds = coco.inds.catIds;
     baseidx{bi} = cellfun(@(x) find(cellfun(@(y) strcmp(y,x),low_cat),1),base{bi},'UniformOutput',false);
+    imgIds = coco.getImgIds('catIds',catIds([baseidx{bi}{:}]));
+    disp(sprintf('For base %s I found %i images',[base{bi}{:}],length(imgIds)));
+    for i=1:size(imdata_,1)
+        imdata_(i,2+bi) = any(imgIds==imdata_(i,1));
+    end
+    if bi>1
+        imdata_(:,2+bi) = imdata_(:,2+bi) .* ~(sum(imdata_(:,3:(1+bi)),2)>0);
+    end
+    disp(sprintf('Removing images from previous categories left me with %i',sum(imdata_(:,2+bi))));
 end
-% use the category IDs to load the relevant images
+
+%% Display four random images from a category
+category = 3; % category choice
+
+imgIds = imdata_(imdata_(:,2+category)==1,1);
+
+disp(sprintf('For base %s I found %i images',[base{category}{:}],length(imgIds)));
+
+h = figure(1);
+% 4x4 array of random images
+n = length(imgIds);
+for x = 1:2
+    for y = 1:2
+        idx = (x-1)*2+y;
+        subplot(2,2,idx);
+        img = coco.loadImgs(imgIds(randi(n)));
+        I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
+        imagesc(I); axis('image'); set(gca,'XTick',[],'YTick',[])
+    end
+end
