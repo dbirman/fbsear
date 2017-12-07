@@ -76,25 +76,42 @@ for bi = 1:length(base)
 end
 
 %% add images that have NO categories in them
-base{end+1} = 'nococo';
+base{end+1} = {'nococo'};
 nococo_imgs;
 
 search_idxs = imdata_(:,end)==1;
-cimdata = imdata_(search_idxs,:); % get just these indexes
 s = size(imdata_,2);
 s1 = size(imdata_,2)+1;
 for ni = 1:length(nococo)
     cid = nococo(ni);
-    for ci = 1:size(cimdata,1)
-        if cid==cimdata(ci,1)
-            % match images: remove entry for null group and move to nococo
-            imdata_(search_idxs(ci),s1) = 1;
-            imdata_(search_idxs(ci),s) = 0;
-        end
-    end
+    imdata_idx = find(imdata_(:,1)==cid,1);
+    imdata_(imdata_idx,s1) = 1;
+    imdata_(imdata_idx,s) = 0;
 end
 
 %% Check how many images are left if we remove images that are vertical (keep only 640x480)
+
+awidth = [coco.data.images.width];
+aheight = [coco.data.images.height];
+
+imdata_sq = imdata_;
+
+cocoIds = [coco.data.images.id];
+
+keep = zeros(1,size(imdata_sq,1));
+N = length(cocoIds);
+disppercent(-1/N);
+for ii = 1:size(imdata_sq,1)
+    cid = imdata_sq(ii,1);
+    idx = find(cocoIds==cid,1);
+    width = coco.data.images(idx).width;
+    height = coco.data.images(idx).height;
+    keep(ii) = ((width==640) && (height==640)) || ((width==500) && (height==500));
+    disppercent(ii/N);
+end
+disppercent(inf);
+
+imdata_sq = imdata_(keep,:);
 
 %% Display four random images from a category
 category = 8; % category choice
