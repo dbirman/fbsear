@@ -2,7 +2,7 @@
 addpath(genpath('~/proj/fbsear'));
 
 annTypes = { 'instances', 'captions', 'person_keypoints' };
-dataType='val2017'; annType=annTypes{1}; % specify dataType/annType
+dataType='train2017'; annType=annTypes{1}; % specify dataType/annType
 annFile=fullfile('~/proj/fbsear/',sprintf('annotations/%s_%s.json',annType,dataType));
 coco=CocoApi(annFile);
 
@@ -25,7 +25,9 @@ imdata = zeros(length(coco.data.images),2);
 imanns = cell(1,length(coco.data.images));
 % keep indexes
 keep = zeros(1,length(coco.data.images));
-for i = 1:length(coco.data.images)
+N = length(coco.data.images);
+disppercent(-1/N);
+for i = 1:N
     id = coco.data.images(i).id;
     area = coco.data.images(i).height*coco.data.images(i).width;
     imdata(i,:) = [id area];
@@ -35,8 +37,10 @@ for i = 1:length(coco.data.images)
         anndata(ai,:) = [anns(ai).id anns(ai).area/area];
     end
     imanns{i} = anndata;
-    keep(i) = ~any(anndata(:,2)>0.33); % keep indexes that have no annotations greater than 20% of image
+    keep(i) = isempty(anns) || ~any(anndata(:,2)>0.33); % keep indexes that have no annotations greater than 20% of image
+    disppercent(i/N);
 end
+disppercent(inf);
 
 oidx = find(keep); % save the original indexes so we can quickly pull the full info from the coco dataset
 imdata = imdata(logical(keep),:);
@@ -71,8 +75,29 @@ for bi = 1:length(base)
     disp(sprintf('Removing images from previous categories left me with %i',sum(imdata_(:,2+bi))));
 end
 
+%% add images that have NO categories in them
+base{end+1} = 'nococo';
+nococo_imgs;
+
+search_idxs = imdata_(:,end)==1;
+cimdata = imdata_(search_idxs,:); % get just these indexes
+s = size(imdata_,2);
+s1 = size(imdata_,2)+1;
+for ni = 1:length(nococo)
+    cid = nococo(ni);
+    for ci = 1:size(cimdata,1)
+        if cid==cimdata(ci,1)
+            % match images: remove entry for null group and move to nococo
+            imdata_(search_idxs(ci),s1) = 1;
+            imdata_(search_idxs(ci),s) = 0;
+        end
+    end
+end
+
+%% Check how many images are left if we remove images that are vertical (keep only 640x480)
+
 %% Display four random images from a category
-category = 3; % category choice
+category = 8; % category choice
 
 imgIds = imdata_(imdata_(:,2+category)==1,1);
 
@@ -90,3 +115,50 @@ for x = 1:2
         imagesc(I); axis('image'); set(gca,'XTick',[],'YTick',[])
     end
 end
+
+%% Squareify?
+
+category = 8; % category choice
+
+imgIds = imdata_(imdata_(:,2+category)==1,1);
+
+h = figure(1);
+% 4x4 array of random images
+n = length(imgIds);
+for x = 1:2
+    for y = 1:2
+        idx = (x-1)*2+y;
+        subplot(2,2,idx);
+        img = coco.loadImgs(imgIds(randi(n)));
+        I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
+        
+%         Isq = zeros(640,640,3);
+%         pixels = I(:);
+%         if size(I,1)<640 && size(I,2)<640
+%             Isq = I;
+%         elseif size(I,1)<640
+%             dif = 640-size(I,1);
+%             ld = floor(dif/2); rd = ceil(dif/2);
+%             Isq = cat(1,reshape(pixels(randi(length(pixels),1,ld*640*3)),ld,640,3),I,zeros(rd,640,3));
+%         else size(I,2)<640
+%             Isq = I;
+% %             dif = 640-size(I,2);
+% %             ld = floor(dif/2); rd = ceil(dif/2);
+% %             Isq = cat(2,reshape(pixels(randi(length(pixels),1,ld*640*3)),ld,640,3),I,zeros(rd,640,3));
+%         end
+        clear Isq
+        if size(I,1)<640 || size(I,2)<640
+            dif = 640-size(I,1);
+            ld = floor(dif/2); rd = ceil(dif/2);
+            dif = 640-size(I,2);
+            ud = floor(dif/2); dd = ceil(dif/2);
+            Isq = padarray(I,[ld ud],'replicate','pre');
+            Isq = padarray(Isq,[rd dd],'replicate','post');
+        else
+            Isq = I;
+        end
+        imagesc(Isq); axis('image'); set(gca,'XTick',[],'YTick',[])
+    end
+end
+
+%% For each image 
