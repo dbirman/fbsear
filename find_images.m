@@ -89,32 +89,50 @@ for ni = 1:length(nococo)
     imdata_(imdata_idx,s) = 0;
 end
 
+%% Save imdata
+
+save('~/proj/fbsear/imdata.mat','imdata_');
+
+
+
+
+
+
+
+
+
+%% OLD CODE OLD CODE OLD CODE OLD CODE
+
+% NOTE: You can't take out images, most of the images are random sizes but
+% have one dimension either 640 or 500. 
+
 %% Check how many images are left if we remove images that are vertical (keep only 640x480)
 
 awidth = [coco.data.images.width];
 aheight = [coco.data.images.height];
 
-imdata_sq = imdata_;
+% figure; plot(awidth,aheight,'*');
+% figure; hist([awidth aheight]);
 
 cocoIds = [coco.data.images.id];
 
-keep = zeros(1,size(imdata_sq,1));
+keep = zeros(1,size(imdata_,1));
 N = length(cocoIds);
 disppercent(-1/N);
-for ii = 1:size(imdata_sq,1)
-    cid = imdata_sq(ii,1);
+for ii = 1:size(imdata_,1)
+    cid = imdata_(ii,1);
     idx = find(cocoIds==cid,1);
-    width = coco.data.images(idx).width;
-    height = coco.data.images(idx).height;
-    keep(ii) = ((width==640) && (height==640)) || ((width==500) && (height==500));
+    keep(ii) = awidth(idx)==640 || awidth(idx)==500;
     disppercent(ii/N);
 end
 disppercent(inf);
 
-imdata_sq = imdata_(keep,:);
+imdata_sq = imdata_(logical(keep),:);
+
+disp(sum(imdata_sq(:,3:end)));
 
 %% Display four random images from a category
-category = 8; % category choice
+category = 9; % category choice
 
 imgIds = imdata_(imdata_(:,2+category)==1,1);
 
