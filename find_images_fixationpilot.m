@@ -99,6 +99,70 @@ semdata.anns = pickAnns;
 
 save(fullfile('~/proj/fbsear/data/','semantic.mat'),'semdata');
 
+%% Load data
+load(fullfile('~/proj/fbsear/data/semantic.mat'));
+pickIds = semdata.ids;
+pickAnns = semdata.anns;
+
+%% Load keep file (Mel's edits) and swap out images that are bad for some reason. 
+load(fullfile('~/proj/fbsear/data/sem_keep.mat'));
+
+%%
+notokay = find(~cellfun(@(x) strcmp(x,'y'),resp));
+
+figure(1);
+for ii = 1:length(notokay)
+    inum = notokay(ii);
+    
+    % load the image and load a second image
+    subplot(121);
+    img = coco.loadImgs(pickIds(inum));
+    I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
+    imagesc(I);
+    disp(resp{inum});
+    disp(low_cat(logical(pickAnns(inum,:))));
+    
+    % find another image with the same categories as this one
+    cAnns = pickAnns(inum,:);
+    replacementIndexes = find(all(imcats == repmat(cAnns,size(imcats,1),1),2));
+    
+    for ri = 1:length(replacementIndexes)
+        crIdx = replacementIndexes(ri);
+        
+        newId = imdata(crIdx,1);
+        newAnns = imcats(crIdx,:);
+        
+        subplot(122);
+        img = coco.loadImgs(newId);
+        I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
+        imagesc(I);
+        
+        pause(.25);
+        key = waitForKeypress;
+        if strcmp(key,'y')
+            disp('replacing image with this new one');
+            resp{inum} = 'y';
+            
+            pickIds(inum) = newId;
+            pickAnns(inum,:) = newAnns;
+            break;
+        else
+            disp('ignored');
+        end
+    end
+    
+end
+
+save(fullfile('~/proj/fbsear/data/sem_keep_corrected.mat'),'resp');
+
+%% Convert data to file usable by stimulus program
+for ii = 1:size(pickIds,1)
+    img = coco.loadImgs(pickIds(ii));
+    I = imread(fullfile('~/proj/fbsear/',sprintf('images/%s/%s',dataType,img.file_name)));
+    semdata.imgs{ii} = I;
+end
+save(fullfile('~/proj/fbsear/data/','semantic.mat'),'semdata');
+
 %% Covariance matrix
 
 imagesc(cov(ntdata))

@@ -50,6 +50,7 @@ end
 % for curScan = 1:5
 %     roiData(:,:,curScan) = rois{curScan}.tSeries;
 % end
+% data = roiData;
 
 data = zeros(size(rois{1},1),size(rois{1},2),5);
 
@@ -59,9 +60,8 @@ end
 
 %% Compute correlation matrix
 
-corrMat = zeros(size(roiData,1),5,5);
+corrMat = zeros(size(data,1),5,5);
 parfor n = 1:size(data,1)
-%     corrMat(n,:,:) = corrcoef(squeeze(roiData(n,:,:)));
     corrMat(n,:,:) = corrcoef(squeeze(data(n,:,:)));
 end
 
@@ -73,17 +73,28 @@ end
 fixate = corrMat(:,1,2:5);
 fixate = squeeze(mean(fixate,3));
 % take only the top 5%
-cutoff = quantile(fixate,.95);
-
-fixidxs = fixate>cutoff;
 
 %% Compute the average correlation matrix
-avgCorrMat = squeeze(mean(corrMat(fixidxs,:,:)));
-% set the diagonal to zero
-avgCorrMat = avgCorrMat.*(~diag(ones(1,5)));
-imagesc(avgCorrMat);
-colormap('gray');
-colorbar
+
+h = figure;
+qs = [0.5 0.95 0.99];
+
+for qi = 1:length(qs)
+    subplot(length(qs),1,qi);
+    
+    cutoff = quantile(fixate,qs(qi));
+
+    fixidxs = fixate>cutoff;
+    avgCorrMat = squeeze(mean(corrMat(fixidxs,:,:)));
+    % set the diagonal to zero
+    avgCorrMat = triu(avgCorrMat.*(~diag(ones(1,5))));
+    imagesc(avgCorrMat);
+    colormap('gray');
+    colorbar
+    set(gca,'XTick',1:5,'XTickLabel',desc,'XAxisLocation','top');
+    set(gca,'YTick',1:5,'YTickLabel',desc);
+end
+savepdf(h,fullfile('~/proj/fbsear/analysis/figs','correlation_mat.pdf'));
 
 %% Compute the difference scores
 % We will compute three difference scores:
@@ -114,10 +125,73 @@ view = getMLRView;
 
 peopleDiff = reshape(peopleDiff,s(1),s(2),s(3));
 carDiff = reshape(carDiff,s(1),s(2),s(3));
+fixate = reshape(fixate,s(1),s(2),s(3));
 
 mrDispOverlay(peopleDiff,2,view.curGroup,getMLRView,'overlayName=peopleDiff');
 mrDispOverlay(carDiff,2,view.curGroup,getMLRView,'overlayName=carDiff');
+mrDispOverlay(fixate,2,view.curGroup,getMLRView,'overlayName=fix_cutoff');
 
-% diff2
-diff2 = peopleDiff - carDiff;
-mrDispOverlay(diff2,2,view.curGroup,getMLRView,'overlayName=People_minus_Cars');
+%% Generate plots
+% First generate plots of the look people corr people/car con histograms
+% after using the fixation cutoffs (>.95 seems to work well)
+
+h = figure;
+
+corrMatFix = corrMat(fixate>quantile(fixate(:),.95),:,:);
+
+lp_x_cp = corrMatFix(:,2,4);
+lp_x_cc = corrMatFix(:,2,5);
+lc_x_cp = corrMatFix(:,3,4);
+lc_x_cc = corrMatFix(:,3,5);
+vl = [min([lp_x_cc(:) ;lc_x_cc(:)]) max([lp_x_cp(:) ;lc_x_cp(:)])];
+bin_centers = vl(1):(diff(vl)/10):vl(2);
+
+% plot marginals
+lp_x_cp_hist = hist(lp_x_cp,bin_centers);
+subplot(3,6,[1 2]);
+bar(bin_centers,lp_x_cp_hist,'FaceColor','k');
+a = axis;
+axis([vl a(3) a(4)]);
+a = axis;
+drawPublishAxis;
+
+lp_x_cc_hist = hist(lp_x_cc,bin_centers);
+subplot(3,6,[9 15]);
+barh(bin_centers,lp_x_cc_hist,'FaceColor','k');
+axis([a(3) a(4) a(1) a(2)]);
+drawPublishAxis;
+
+
+lc_x_cp_hist = hist(lc_x_cp,bin_centers);
+subplot(3,6,[4 5]);
+bar(bin_centers,lc_x_cp_hist,'FaceColor','k');
+axis(a);
+drawPublishAxis;
+
+lc_x_cc_hist = hist(lc_x_cc,bin_centers);
+subplot(3,6,[12 18]);
+barh(bin_centers,lc_x_cc_hist,'FaceColor','k');
+axis([a(3) a(4) a(1) a(2)]);
+drawPublishAxis;
+
+% plot correlation plot
+subplot(3,6,[7 8 13 14]); hold on
+plot(lp_x_cc,lp_x_cp,'o','MarkerFaceColor','k','MarkerEdgeColor','k','MarkerSize',1);
+plot(vl,vl,'--r');
+title('Look for people (selected for visual-responsive voxels)');
+xlabel('Corr with contrast cars');
+ylabel('Corr with contrast people');
+axis([vl vl]);
+drawPublishAxis;
+
+subplot(3,6,[10 11 16 17]); hold on
+plot(lc_x_cc,lc_x_cp,'o','MarkerFaceColor','k','MarkerEdgeColor','k','MarkerSize',1);
+vl = [min(lc_x_cc(:)) max(lc_x_cp(:))];
+plot(vl,vl,'--r');
+title('Look for cars (selected for visual-responsive voxels)');
+xlabel('Corr with contrast cars');
+ylabel('Corr with contrast people');
+axis([vl vl]);
+drawPublishAxis;
+
+savepdf(h,fullfile('~/proj/fbsear/analysis/figs','correlation_comp.pdf'));
