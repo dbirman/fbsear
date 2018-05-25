@@ -98,6 +98,12 @@ maxr2_ = maxr2_(~isnan(maxr2_));
 figure;
 qs = 0.9:.001:1;
 plot(qs*length(maxr2_),quantile(maxr2_,qs));
+
+
+%% Missing: plot r^2 average across groups on surfaces
+
+%% Semantic analysis
+
 %% Get annotation data
 clear aAnns
 for si = 1:length(stimfiles)
@@ -157,9 +163,14 @@ tSeries = scan.tSeries;
 
 for vi = 1:size(tSeries,1)
     y = tSeries(vi,:)';
-    [xl,yl,xs,ys,beta,pctvar,mse] = plsregress(design,y-1,10,'CV',10);
-    b = B(:,fitInfo.IndexMinMSE);
-    r(vi) = corr(design*b,y-1);
+    
+    % lasso version
+    [b,stats] = lasso(design,y-1,'CV',10);
+    
+    % partial least squares verion
+%     [xl,yl,xs,ys,beta,pctvar,mse] = plsregress(design,y-1,10,'CV',10);
+%     b = B(:,fitInfo.IndexMinMSE);
+%     r(vi) = corr(design*b,y-1);
     %% test code
     figure; hold on
     plot(y(1:500)-1);
